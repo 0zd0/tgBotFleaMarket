@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "tgbotfleamarket"
+version = "0.1.0"
+description = ""
+authors = ["PLAKSHERiE <67220210+PLAKSHERiE@users.noreply.github.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+aiogram = "^3.2.0"
+gino = "^1.0.1"
+alembic = "^1.13.0"
+psycopg2 = "^2.9.9"
+apscheduler = "^3.10.4"
+redis = "^5.0.1"
+emoji = "^2.9.0"
+cachetools = "^5.3.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.mypy]
+plugins = ["pydantic.mypy",]

@@ -1,0 +1,27 @@
+[telegram]
+bot_token = "22222222222"
+db_name = 'flea'
+start_notify = true
+start_notify_ids = [1111111]
+channel_id = -11111111111
+support_username = "re_mont_aniva"
+max_length_ads = 3000
+max_ads_per_day = 2
+advertising = "Ремонт телефонов, планшетов, компьютеров г. Анива, ТЦ\nСагори 1й этаж\n89140983232"
+advertising_every_ad = 4
+
+
+[redis]
+host = 'localhost'
+port = 6379
+
+
+[postgres]
+host = 'localhost'
+port = 5432
+login = 'postgres'
+password = '1234'
+
+
+[curse_words]
+file_path = './curse_words.txt'

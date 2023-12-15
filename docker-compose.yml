@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    container_name: bot
+    environment:
+      TZ: Europe/Moscow
+    volumes:
+      - ./config.prod.toml:/app/config.prod.toml
+      - ./curse_words.txt:/app/curse_words.txt
+      - ./start.sh:/app/start.sh
+    restart: "always"
+    networks:
+      - bot
+
+networks:
+  bot:
+    external: true

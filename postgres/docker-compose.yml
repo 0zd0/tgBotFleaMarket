@@ -1,0 +1,25 @@
+version: '3.8'
+
+volumes:
+  postgres_db:
+    driver: local
+
+services:
+  postgres:
+    image: postgres:alpine
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+#      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: uNYoBJLLZgKiuni7WTkT
+    restart: always
+    volumes:
+      - "/root/postgres/backup:/backup"
+      - postgres_db:/var/lib/postgresql/data
+    networks:
+      - bot
+
+networks:
+  bot:
+    external: true
