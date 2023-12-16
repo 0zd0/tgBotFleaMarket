@@ -18,6 +18,7 @@ class AdModel(BaseModel):
 
     id = db.Column(db.Integer(), primary_key=True, autoincrement=True, unique=True)
     user_id = db.Column(None, db.ForeignKey('users.id'))
+    user_name = db.Column(db.String)
     text = db.Column(db.String)
     entities = db.Column(JSON)
     photo_ids = db.Column(db.ARRAY(db.String))

@@ -89,32 +89,3 @@ class IsCurseWordsFilter(Filter):
             )
             return True
         return False
-
-
-class IsLimitLengthAdFilter(Filter):
-    def __init__(self, limit: int):
-        self.limit = limit
-
-    async def __call__(
-        self,
-        message: Message,
-        event_from_user: User,
-        bot: Bot,
-        user: UserModel,
-    ) -> Union[bool, Dict[str, Any]]:
-        return await self.check(message, message.text)
-
-    async def check(
-            self,
-            message: Message,
-            text: str
-    ) -> bool:
-        if len(text) > self.limit:
-            content = as_list(
-                Text(Text(f'Вы превысили лимит символов. '), Italic(f'(Максимум {self.limit})')),
-            )
-            await message.answer(
-                text=content.as_markdown(),
-            )
-            return True
-        return False

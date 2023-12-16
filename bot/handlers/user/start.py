@@ -45,7 +45,7 @@ async def start_terms(
         Text(f''),
         Text(
             f'Данный бот поможет вам опубликовать объявление на канале '
-            f'@{(await bot.get_chat(config.telegram.channel_id)).username}!'
+            f'@{config.telegram.channel_username}!'
         ),
         Text(f''),
         Text(Bold(f'Начиная использовать данного бота, вы подтверждаете, что прочитали, поняли и согласны со всеми '
@@ -124,4 +124,4 @@ async def start(
         state: FSMContext,
 ) -> Any:
     await state.clear()
-    await send_main_menu(message, welcome=True)
+    await send_main_menu(message, message.from_user, welcome=True)

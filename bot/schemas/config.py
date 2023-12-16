@@ -13,6 +13,8 @@ class TelegramConfig(BaseModel):
     start_notify_ids: List[str | int]
     channel_id: str | int
     support_username: str
+    bot_username: str
+    channel_username: str
     max_length_ads: int
     max_ads_per_day: int
     advertising: str

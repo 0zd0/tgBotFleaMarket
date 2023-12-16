@@ -17,7 +17,7 @@ from bot.db.ad.model import AdModel
 from bot.enums.action import Action
 from bot.enums.db.role import ALL
 from bot.enums.menu import Cancel, MainMenuItemCallback
-from bot.filters.ad import IsCurseWordsFilter, IsLimitLengthAdFilter, IsLimitAdsPerDayFilter
+from bot.filters.ad import IsCurseWordsFilter, IsLimitAdsPerDayFilter
 from bot.filters.terms_of_use import IsAcceptTermsOfUseFilter
 from bot.filters.user import RoleFilter
 from bot.keyboards.default.misc import cancel
@@ -25,18 +25,25 @@ from bot.keyboards.inline.ad import new_ad_skip_images_keyboard, new_ad_public_i
 from bot.keyboards.inline.menu import MenuItemCallback
 from bot.loader import bot
 from bot.middlewares import AlbumMiddleware
+from bot.middlewares.ad import CheckAdLimitLengthMiddleware
 from bot.middlewares.subscribe import SubscribeChannelMiddleware
 from bot.schemas.ad import NewAdModel, UtilsAdModel
 from bot.states.ad import NewAdState
-from bot.utils.misc.ad import get_text_error_action_ad, get_text_message_ad, get_advertising_for_message
+from bot.utils.misc.ad import get_text_error_action_ad, get_text_message_ad, get_advertising_for_message, \
+    get_advertising_from_string
 from bot.utils.misc.menu import send_main_menu
 
 EMOJI_TO_BUTTON = emoji.emojize(":backhand_index_pointing_down:")
 
 router = Router()
+
 router.message.outer_middleware(AlbumMiddleware())
+
 router.message.middleware(SubscribeChannelMiddleware(channel_id=config.telegram.channel_id))
 router.callback_query.middleware(SubscribeChannelMiddleware(channel_id=config.telegram.channel_id))
+
+router.callback_query.middleware(CheckAdLimitLengthMiddleware())
+router.message.middleware(CheckAdLimitLengthMiddleware())
 
 
 @router.message(
@@ -53,7 +60,7 @@ async def new_ad_cancel(message: Message, state: FSMContext):
         Text(f'{emoji.emojize(":cross_mark:")} Отмена создания объявления')
     )
     await message.answer(text=content.as_markdown(), reply_markup=ReplyKeyboardRemove())
-    await send_main_menu(message)
+    await send_main_menu(message, message.from_user)
 
 
 @router.callback_query(
@@ -98,23 +105,15 @@ async def new_ad_text_and_photos(
         state: FSMContext,
         album: Album
 ) -> Any:
-    first_message = album.messages[0]
-    entities_raw = first_message.caption_entities or []
-    entities = UtilsAdModel.get_entities_json(first_message.caption_entities)
-    caption = first_message.caption
+    caption, entities_raw = album.get_caption_and_entities()
+    entities_json = UtilsAdModel.get_entities_json(entities_raw)
     if not caption:
-        first_non_empty = next((s for s in album.captions if s), None)
-        if first_non_empty:
-            caption = first_non_empty
-        else:
-            return
-    if await IsCurseWordsFilter(config.curse_words.file_path).check(message, caption, entities_raw):
         return
-    if await IsLimitLengthAdFilter(config.telegram.max_length_ads).check(message, caption):
+    if await IsCurseWordsFilter(config.curse_words.file_path).check(message, caption, entities_raw):
         return
     photo_ids = [photo.file_id for photo in album.photo]
     await message_text_and_photo(message, photo_ids)
-    await state.update_data(photo_ids=photo_ids, text=caption, entities=entities)
+    await state.update_data(photo_ids=photo_ids, text=caption, entities=entities_json)
     await state.set_state(NewAdState.MEDIA)
 
 
@@ -136,8 +135,6 @@ async def new_ad_text_and_photo(
     caption = message.caption
     if await IsCurseWordsFilter(config.curse_words.file_path).check(message, caption, message.caption_entities or []):
         return
-    if await IsLimitLengthAdFilter(config.telegram.max_length_ads).check(message, caption):
-        return
     photo = message.photo.pop()
     photo_ids = [photo.file_id]
     await message_text_and_photo(message, photo_ids)
@@ -157,7 +154,6 @@ async def new_ad_text_and_photo(
     IsAcceptTermsOfUseFilter(),
     ~IsLimitAdsPerDayFilter(config.telegram.max_ads_per_day),
     ~IsCurseWordsFilter(config.curse_words.file_path),
-    ~IsLimitLengthAdFilter(config.telegram.max_length_ads),
 )
 async def new_ad_text(
         message: Message,
@@ -230,11 +226,12 @@ async def new_ad_callback_end(
         state: FSMContext,
 ) -> Any:
     data = NewAdModel(**(await state.get_data()))
+    data.user_name = call.from_user.full_name
     ads_limit_must = config.telegram.advertising_every_ad - 1
     ads = await AdModel.get_last(limit=ads_limit_must)
-    advertising = [
-        Text(line) for line in config.telegram.advertising.split('\n')
-    ] if len(ads) == ads_limit_must and all(ad.text_advertising is None for ad in ads) else []
+    advertising = get_advertising_from_string(config.telegram.advertising) \
+        if len(ads) == ads_limit_must and all(ad.text_advertising is None for ad in ads) \
+        else Text()
     if advertising:
         advertising = get_advertising_for_message(advertising)
         data.text_advertising = config.telegram.advertising
@@ -242,23 +239,29 @@ async def new_ad_callback_end(
         text=data.text,
         entities=data.entities or [],
         from_user=call.from_user,
-        bot=(await bot.get_me()),
+        bot_username=config.telegram.bot_username,
         advertising=advertising
     )
-    media = [InputMediaPhoto(media=photo_id) for photo_id in data.photo_ids or []]
+    media = []
+    if data.photo_ids:
+        for index, photo_id in enumerate(data.photo_ids):
+            if index == 0:
+                media.append(InputMediaPhoto(
+                    media=photo_id,
+                    caption=text.as_markdown(),
+                    caption_entities=data.entities,
+                ))
+            else:
+                media.append(InputMediaPhoto(
+                    media=photo_id,
+                ))
     try:
         if media:
-            send_photos = await bot.send_media_group(
+            send_messages = await bot.send_media_group(
                 chat_id=config.telegram.channel_id,
                 media=media,
             )
-            send_message = await bot.send_message(
-                chat_id=config.telegram.channel_id,
-                reply_to_message_id=send_photos[0].message_id,
-                text=text.as_markdown(),
-                entities=data.entities,
-                disable_web_page_preview=True
-            )
+            send_message = send_messages[0]
         else:
             send_message = await bot.send_message(
                 chat_id=config.telegram.channel_id,
@@ -284,7 +287,7 @@ async def new_ad_callback_end(
     finally:
         await call.answer()
         await state.clear()
-        await send_main_menu(call.message)
+        await send_main_menu(call.message, call.from_user)
 
 
 async def message_text_and_photo(

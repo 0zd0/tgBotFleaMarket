@@ -31,7 +31,6 @@ router.callback_query.middleware(SubscribeChannelMiddleware(channel_id=config.te
 async def to_main_menu(
         call: CallbackQuery,
         state: FSMContext,
-        user: UserModel,
 ) -> Any:
     await state.clear()
-    await send_main_menu(call)
+    await send_main_menu(call, call.from_user)

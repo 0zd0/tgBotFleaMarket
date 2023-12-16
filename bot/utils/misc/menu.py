@@ -1,4 +1,4 @@
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, User
 from aiogram.utils.formatting import as_list, Text
 
 from bot.data.main_config import config
@@ -9,10 +9,11 @@ from bot.loader import bot
 
 async def send_main_menu(
     message: Message | CallbackQuery,
+    from_user: User,
     welcome: bool = False,
 ):
     chat = await bot.get_chat(config.telegram.channel_id)
-    ads = await AdModel.get_ads_day_by_user(message.from_user.id)
+    ads = await AdModel.get_ads_day_by_user(from_user.id)
     content = as_list(
         Text(f'Кол-во объявлений на сегодня {max(config.telegram.max_ads_per_day - len(ads), 0)} шт.'),
         Text(f''),
@@ -21,7 +22,7 @@ async def send_main_menu(
     )
     if welcome:
         content = as_list(
-            Text(f'Здравствуйте {message.from_user.full_name}!'),
+            Text(f'Здравствуйте {from_user.full_name}!'),
             Text(f''),
             content
         )

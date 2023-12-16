@@ -12,14 +12,13 @@ from aiogram.fsm.state import any_state
 from aiogram.types import Message, CallbackQuery
 from aiogram.utils.formatting import as_list, Text, TextLink, Italic
 
-from bot.constants import LIMIT_ADS_ON_PAGE
+from bot.constants import LIMIT_ADS_ON_PAGE, LIMIT_LENGTH_IN_CAPTION
 from bot.data.main_config import config
 from bot.db.ad.model import AdModel
-from bot.db.user.model import UserModel
 from bot.enums.action import Action
 from bot.enums.db.role import ALL
 from bot.enums.menu import MainMenuItemCallback
-from bot.filters.ad import IsCurseWordsFilter, IsLimitLengthAdFilter
+from bot.filters.ad import IsCurseWordsFilter
 from bot.filters.terms_of_use import IsAcceptTermsOfUseFilter
 from bot.filters.user import RoleFilter
 from bot.keyboards.inline.ad import get_ads_list_keyboard, AdListControlCallback, AdListActionCallback, \
@@ -29,7 +28,8 @@ from bot.loader import bot
 from bot.middlewares.subscribe import SubscribeChannelMiddleware
 from bot.schemas.ad import EditAdTextModel, UtilsAdModel
 from bot.states.ad import EditAdTextState
-from bot.utils.misc.ad import get_text_message_ad, get_text_error_action_ad, get_advertising_for_message
+from bot.utils.misc.ad import get_text_message_ad, get_text_error_action_ad, get_advertising_for_message, \
+    get_advertising_from_string, get_text_when_ad_deleted, get_lengths
 
 router = Router()
 router.message.middleware(SubscribeChannelMiddleware(channel_id=config.telegram.channel_id))
@@ -124,19 +124,17 @@ async def ad_delete(
     try:
         await AdModel.ad_archive(callback_data.ad_id)
         ad = await AdModel.get_by_id(callback_data.ad_id)
-        advertising = [
-            Text(line) for line in ad.text_advertising.split('\n')
-        ] if ad.text_advertising else []
+        advertising = get_advertising_from_string(ad.text_advertising)
         old_text = get_text_message_ad(
                 text=ad.text,
                 entities=UtilsAdModel.get_entities_obj(ad.entities),
                 from_user=call.from_user,
-                bot=(await bot.get_me()),
-                advertising=get_advertising_for_message(advertising) if advertising else []
+                bot_username=config.telegram.bot_username,
+                advertising=get_advertising_for_message(advertising),
+                from_user_name=ad.user_name,
             )
         new_text = as_list(
-            Text(Italic(f'{emoji.emojize(":cross_mark:")} Неактуально')),
-            Text(),
+            get_text_when_ad_deleted(),
             old_text
         )
         await bot.edit_message_text(
@@ -214,28 +212,35 @@ async def ad_edit_start(
     RoleFilter(ALL),
     IsAcceptTermsOfUseFilter(),
     ~IsCurseWordsFilter(config.curse_words.file_path),
-    ~IsLimitLengthAdFilter(config.telegram.max_length_ads),
 )
-@flags.rate_limit(limit=5)
+@flags.rate_limit(limit=3)
 async def ad_edit_text(
         message: Message,
-        state: FSMContext,
-        user: UserModel
+        state: FSMContext
 ) -> Any:
     data = EditAdTextModel(**(await state.get_data()))
-    await state.clear()
-    text = message.text
     ad = await AdModel.get_by_id(data.ad_id)
+    text = message.text
+    ad_text_length, text_additional_to_ad_length = await get_lengths(text, message.from_user,
+                                                                     config.telegram.bot_username,
+                                                                     advertising_text=ad.text_advertising)
+    if text_additional_to_ad_length + ad_text_length > LIMIT_LENGTH_IN_CAPTION:
+        limit_ad_text = LIMIT_LENGTH_IN_CAPTION - text_additional_to_ad_length
+        error = as_list(
+            Text(Text(f'{emoji.emojize(":cross_mark:")} Вы превысили лимит символов. '),
+                 Italic(f'({ad_text_length}/{limit_ad_text})')),
+            Text(),
+            Text('Напишите текст покороче:'),
+        )
+        return await message.answer(text=error.as_markdown())
     entities_json = UtilsAdModel.get_entities_json(message.entities) if message.entities else []
-    advertising = [
-        Text(line) for line in ad.text_advertising.split('\n')
-    ] if ad.text_advertising else []
+    advertising = get_advertising_from_string(ad.text_advertising)
     new_text = get_text_message_ad(
         text=text,
         entities=message.entities or [],
         from_user=message.from_user,
-        bot=(await bot.get_me()),
-        advertising=get_advertising_for_message(advertising) if advertising else []
+        bot_username=config.telegram.bot_username,
+        advertising=get_advertising_for_message(advertising)
     )
     try:
         await bot.edit_message_text(
@@ -245,12 +250,19 @@ async def ad_edit_text(
             disable_web_page_preview=True
         )
     except TelegramBadRequest as e:
-        await AdModel.ad_archive(data.ad_id)
-        error = as_list(
-            Text('Сообщение не найдено в канале. Поэтому оно автоматически удалено')
-        )
-        await message.answer(text=error.as_markdown())
-        await ads_list(message)
+        if 'specified new message content and reply markup are exactly the same as a current content' in e.message:
+            error = as_list(
+                Text('Сообщение с точно таким же текстом')
+            )
+            await message.answer(text=error.as_markdown())
+        else:
+            error = as_list(
+                Text('Сообщение не найдено в канале. Поэтому оно автоматически удалено')
+            )
+            await AdModel.ad_archive(data.ad_id)
+            await message.answer(text=error.as_markdown())
+            await ads_list(message)
+            await state.clear()
     except (Exception,) as e:
         logging.error('Ошибка при редактировании сообщения')
         traceback.print_exc()
@@ -264,6 +276,7 @@ async def ad_edit_text(
             text=Text(f'Текст отредактирован').as_markdown(),
         )
         await ads_info(message, data.ad_id, data.page)
+        await state.clear()
     finally:
         await bot.delete_message(
             chat_id=data.cancel_message_chat_id,

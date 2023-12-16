@@ -1,9 +1,9 @@
-from typing import Union, Optional, List, cast, Dict, Type
+from typing import Union, Optional, List, cast, Dict, Type, Tuple
 
 from aiogram import Bot
 from aiogram.methods import SendMediaGroup
 from aiogram.types import PhotoSize, Video, Audio, Document, TelegramObject, Message, InputMediaPhoto, \
-    InputMediaVideo, InputMediaAudio, InputMediaDocument
+    InputMediaVideo, InputMediaAudio, InputMediaDocument, MessageEntity
 from aiogram.types.base import UNSET_PROTECT_CONTENT
 from pydantic import Field
 
@@ -60,3 +60,16 @@ class Album(TelegramObject):
             reply_to_message_id=reply_to_message_id,
             allow_sending_without_reply=allow_sending_without_reply,
         ).as_(self._bot)
+
+    def get_caption_and_entities(
+            self,
+    ) -> Optional[Tuple[str, List[MessageEntity]]]:
+        first_message = self.messages[0]
+        caption = first_message.caption
+        if not caption:
+            first_non_empty = next((s for s in self.captions if s), None)
+            if first_non_empty:
+                caption = first_non_empty
+            else:
+                return None
+        return caption, first_message.caption_entities or []

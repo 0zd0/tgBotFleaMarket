@@ -19,11 +19,12 @@ class UtilsAdModel:
 
 
 class NewAdModel(BaseModel, UtilsAdModel):
-    text: str
+    text: str = ''
     entities: Optional[List[MessageEntity]] = None
     photo_ids: Optional[List[str]] = None
     channel_message_id: Optional[int] = None
     text_advertising: Optional[str] = None
+    user_name: Optional[str] = None
 
     def get_entities_to_json(
             self
