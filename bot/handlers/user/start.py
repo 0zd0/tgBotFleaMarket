@@ -1,11 +1,12 @@
 from typing import Any
 
+import emoji
 from aiogram import Router, F, flags
 from aiogram.enums import ChatType
-from aiogram.filters import CommandStart, Command
+from aiogram.filters import CommandStart, Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import any_state
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove
 from aiogram.utils.formatting import as_list, Text, Bold, Underline
 
 from bot.data.main_config import config
@@ -20,6 +21,7 @@ from bot.keyboards.inline.menu import inline_menu
 from bot.keyboards.inline.terms_of_use import accept_terms_keyboard, TermsOfUseCallback
 from bot.loader import bot
 from bot.middlewares.subscribe import SubscribeChannelMiddleware
+from bot.states.ad import NewAdState, EditAdTextState, DuplicateAdTextState
 from bot.utils.misc.menu import send_main_menu
 
 router = Router()
@@ -109,6 +111,23 @@ async def accept_terms_of_use(
     await call.message.answer(
         text=content.as_markdown(),
     )
+
+
+@router.message(
+    F.chat.type == ChatType.PRIVATE,
+    CommandStart(),
+    StateFilter(NewAdState, EditAdTextState, DuplicateAdTextState),
+    RoleFilter(ALL),
+    IsAcceptTermsOfUseFilter(),
+)
+@flags.rate_limit(limit=3)
+async def stop_states(message: Message, state: FSMContext):
+    await state.clear()
+    content = as_list(
+        Text(f'{emoji.emojize(":cross_mark:")} Отмена')
+    )
+    await message.answer(text=content.as_markdown(), reply_markup=ReplyKeyboardRemove())
+    await send_main_menu(message, message.from_user)
 
 
 @router.message(

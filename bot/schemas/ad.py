@@ -37,3 +37,9 @@ class EditAdTextModel(BaseModel, UtilsAdModel):
     page: int
     cancel_message_chat_id: int
     cancel_message_id: int
+
+
+class DuplicateAdModel(BaseModel, UtilsAdModel):
+    ad_id: int
+    cancel_message_chat_id: int
+    cancel_message_id: int

@@ -15,7 +15,6 @@ class TelegramConfig(BaseModel):
     support_username: str
     bot_username: str
     channel_username: str
-    max_length_ads: int
     max_ads_per_day: int
     advertising: str
     advertising_every_ad: int

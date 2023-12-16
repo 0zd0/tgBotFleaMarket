@@ -2,7 +2,7 @@ from typing import List, Optional
 
 import emoji
 from aiogram import Bot
-from aiogram.types import MessageEntity, User
+from aiogram.types import MessageEntity, User, InputMediaPhoto
 from aiogram.utils.formatting import as_list, Text, Italic
 
 from bot.data.main_config import config
@@ -16,7 +16,13 @@ def get_additional_text_for_ad(
 ) -> Text:
     return as_list(
         Text(),
-        Text(Text(f'Отправлено пользователем: '), get_mention(from_user, from_user_name)),
+        Text(
+            Text(f'Отправлено пользователем: '), get_mention(
+                from_user,
+                from_user_name if from_user_name
+                else from_user.full_name
+            )
+        ),
         Text(),
         Text(),
         Text('___________________'),
@@ -49,7 +55,7 @@ def get_text_message_ad(
 
 
 def get_advertising_from_string(
-    text: Optional[str]
+        text: Optional[str]
 ) -> Optional[Text]:
     if not text:
         return None
@@ -119,3 +125,44 @@ async def get_lengths(
     ad_text_length = get_length_text(ad_text)
     text_additional_to_ad_length = get_length_text(text_additional_to_ad)
     return ad_text_length, text_additional_to_ad_length
+
+
+async def get_media_from_photo_ids(
+        photo_ids: List[str],
+        # entities: List[MessageEntity],
+        text: Text,
+) -> List[InputMediaPhoto]:
+    media = []
+    if photo_ids:
+        for index, photo_id in enumerate(photo_ids):
+            if index == 0:
+                media.append(InputMediaPhoto(
+                    media=photo_id,
+                    caption=text.as_markdown(),
+                    # caption_entities=entities,
+                ))
+            else:
+                media.append(InputMediaPhoto(
+                    media=photo_id,
+                ))
+    return media
+
+
+async def send_channel_message_ad(
+        media: Optional[List[InputMediaPhoto]],
+        bot: Bot,
+        text: Text,
+):
+    if media:
+        send_messages = await bot.send_media_group(
+            chat_id=config.telegram.channel_id,
+            media=media,
+        )
+        send_message = send_messages[0]
+    else:
+        send_message = await bot.send_message(
+            chat_id=config.telegram.channel_id,
+            text=text.as_markdown(),
+            disable_web_page_preview=True
+        )
+    return send_message

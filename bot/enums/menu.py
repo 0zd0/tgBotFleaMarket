@@ -31,3 +31,4 @@ class Buttons(str, Enum):
     BACK_TO_MENU = f'Назад в меню'
     DELETE = f'{emoji.emojize(":cross_mark:")} Удалить'
     EDIT = f'{emoji.emojize(":pencil:")} Редактировать'
+    DUPLICATE = f'{emoji.emojize(":recycling_symbol:")} Дублировать'

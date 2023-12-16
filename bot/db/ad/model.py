@@ -1,5 +1,5 @@
 import datetime
-from typing import List
+from typing import List, Optional
 
 import pytz
 from aiogram.types import MessageEntity
@@ -64,9 +64,10 @@ class AdModel(BaseModel):
             ad_id: int,
             text: str,
             entities: List[MessageEntity],
+            **kwargs
     ):
         await (cls.update
-               .values(text=text, entities=UtilsAdModel.get_entities_json(entities))
+               .values(text=text, entities=UtilsAdModel.get_entities_json(entities), **kwargs)
                .where(cls.id == ad_id)
                .gino.status())
 

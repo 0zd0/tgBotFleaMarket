@@ -105,7 +105,7 @@ def get_ads_list_keyboard(
     for ad in ads:
         builder.button(
             text=ad.created_at.strftime("%H:%M %d.%m.%Y (%Z)"),
-            callback_data=AdListActionCallback(action=Action.toggle, ad_id=ad.id, page=page)
+            callback_data=AdListActionCallback(action=Action.select, ad_id=ad.id, page=page)
         )
     builder.adjust(1)
     builder.attach(control)
@@ -122,6 +122,8 @@ def get_ad_actions_keyboard(
                                                                              ad_id=ad.id))
     actions.button(text=Buttons.EDIT.value, callback_data=AdActionCallback(action=Action.edit, page=page,
                                                                            ad_id=ad.id))
+    actions.button(text=Buttons.DUPLICATE.value, callback_data=AdActionCallback(action=Action.duplicate, page=page,
+                                                                                ad_id=ad.id))
     actions.adjust(2)
     last.button(text=Buttons.BACK.value, callback_data=AdActionCallback(action=Action.back, page=page,
                                                                         ad_id=ad.id))
@@ -130,7 +132,7 @@ def get_ad_actions_keyboard(
     return actions
 
 
-def get_cancel_ad_action_keyboard(
+def get_ad_action_cancel_keyboard(
         ad_id: int,
         page: int,
 ) -> InlineKeyboardBuilder:

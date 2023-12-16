@@ -5,7 +5,7 @@ from typing import Any, List
 import emoji
 from aiogram import Router, F, flags
 from aiogram.enums import ChatType, ContentType
-from aiogram.filters import StateFilter
+from aiogram.filters import StateFilter, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import any_state
 from aiogram.types import Message, InputMediaPhoto, CallbackQuery, ReplyKeyboardRemove
@@ -30,7 +30,7 @@ from bot.middlewares.subscribe import SubscribeChannelMiddleware
 from bot.schemas.ad import NewAdModel, UtilsAdModel
 from bot.states.ad import NewAdState
 from bot.utils.misc.ad import get_text_error_action_ad, get_text_message_ad, get_advertising_for_message, \
-    get_advertising_from_string
+    get_advertising_from_string, get_media_from_photo_ids, send_channel_message_ad
 from bot.utils.misc.menu import send_main_menu
 
 EMOJI_TO_BUTTON = emoji.emojize(":backhand_index_pointing_down:")
@@ -231,7 +231,7 @@ async def new_ad_callback_end(
     ads = await AdModel.get_last(limit=ads_limit_must)
     advertising = get_advertising_from_string(config.telegram.advertising) \
         if len(ads) == ads_limit_must and all(ad.text_advertising is None for ad in ads) \
-        else Text()
+        else None
     if advertising:
         advertising = get_advertising_for_message(advertising)
         data.text_advertising = config.telegram.advertising
@@ -242,33 +242,16 @@ async def new_ad_callback_end(
         bot_username=config.telegram.bot_username,
         advertising=advertising
     )
-    media = []
-    if data.photo_ids:
-        for index, photo_id in enumerate(data.photo_ids):
-            if index == 0:
-                media.append(InputMediaPhoto(
-                    media=photo_id,
-                    caption=text.as_markdown(),
-                    caption_entities=data.entities,
-                ))
-            else:
-                media.append(InputMediaPhoto(
-                    media=photo_id,
-                ))
+    media = await get_media_from_photo_ids(
+        photo_ids=data.photo_ids,
+        text=text,
+    )
     try:
-        if media:
-            send_messages = await bot.send_media_group(
-                chat_id=config.telegram.channel_id,
-                media=media,
-            )
-            send_message = send_messages[0]
-        else:
-            send_message = await bot.send_message(
-                chat_id=config.telegram.channel_id,
-                text=text.as_markdown(),
-                entities=data.entities,
-                disable_web_page_preview=True
-            )
+        send_message = await send_channel_message_ad(
+            media,
+            bot,
+            text,
+        )
     except (Exception,):
         logging.error('Ошибка при отправке объявления в канал')
         traceback.print_exc()

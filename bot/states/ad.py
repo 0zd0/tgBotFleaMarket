@@ -8,3 +8,7 @@ class NewAdState(StatesGroup):
 
 class EditAdTextState(StatesGroup):
     NEW_TEXT = State()
+
+
+class DuplicateAdTextState(StatesGroup):
+    NEW_TEXT = State()
