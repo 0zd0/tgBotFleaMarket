@@ -6,6 +6,7 @@ import emoji
 from aiogram import Router, F, flags
 from aiogram.enums import ChatType
 from aiogram.exceptions import TelegramBadRequest
+from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import any_state
 from aiogram.types import Message, CallbackQuery
@@ -81,7 +82,6 @@ async def ads_list_control(
         call: CallbackQuery,
         callback_data: AdListControlCallback,
         state: FSMContext,
-        user: UserModel,
 ) -> Any:
     await state.clear()
     await call.answer()
@@ -160,6 +160,24 @@ async def ad_delete(
 
 @router.callback_query(
     F.message.chat.type == ChatType.PRIVATE,
+    StateFilter(EditAdTextState),
+    AdActionCallback.filter(F.action == Action.cancel),
+    RoleFilter(ALL),
+    IsAcceptTermsOfUseFilter(),
+)
+@flags.rate_limit(limit=1)
+async def ad_edit_cancel(
+        call: CallbackQuery,
+        callback_data: AdActionCallback,
+        state: FSMContext,
+) -> Any:
+    await state.clear()
+    await call.answer()
+    await ads_info(call, callback_data.ad_id, callback_data.page)
+
+
+@router.callback_query(
+    F.message.chat.type == ChatType.PRIVATE,
     any_state,
     AdActionCallback.filter(F.action == Action.edit),
     RoleFilter(ALL),
@@ -187,24 +205,6 @@ async def ad_edit_start(
         cancel_message_id=cancel_message.message_id,
         page=callback_data.page,
     )
-
-
-@router.callback_query(
-    F.message.chat.type == ChatType.PRIVATE,
-    EditAdTextState.NEW_TEXT,
-    AdActionCallback.filter(F.action == Action.cancel),
-    RoleFilter(ALL),
-    IsAcceptTermsOfUseFilter(),
-)
-@flags.rate_limit(limit=1)
-async def ad_edit_cancel(
-        call: CallbackQuery,
-        callback_data: AdActionCallback,
-        state: FSMContext,
-) -> Any:
-    await state.clear()
-    await call.answer()
-    await ads_info(call, callback_data.ad_id, callback_data.page)
 
 
 @router.message(
