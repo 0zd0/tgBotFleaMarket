@@ -8,7 +8,8 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from bot.constants import LIMIT_ADS_ON_PAGE
 from bot.db.ad.model import AdModel
 from bot.enums.action import Action
-from bot.enums.menu import Buttons, Cancel
+from bot.enums.menu import Buttons, Cancel, MainMenuItemCallback
+from bot.keyboards.inline.menu import MenuItemCallback
 
 
 class NewAdCallback(CallbackData, prefix='new_ad'):
@@ -55,6 +56,16 @@ new_ad_public_images_keyboard = InlineKeyboardMarkup(
 )
 
 
+def get_back_to_menu_keyboard() -> InlineKeyboardBuilder:
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text=Buttons.BACK_TO_MENU.value,
+        callback_data=MenuItemCallback(item=MainMenuItemCallback.MAIN_MENU).pack()
+    )
+    builder.adjust(1)
+    return builder
+
+
 def get_ads_list_control_keyboard(
         page: int,
         total_pages: int,
@@ -77,6 +88,7 @@ def get_ads_list_control_keyboard(
     if total_pages > real_page:
         builder.add(button_next)
     builder.adjust(3)
+    builder.attach(get_back_to_menu_keyboard())
     return builder
 
 

@@ -17,12 +17,13 @@ from bot.db.ad.model import AdModel
 from bot.db.user.model import UserModel
 from bot.enums.action import Action
 from bot.enums.db.role import ALL
-from bot.enums.menu import MainMenu
+from bot.enums.menu import MainMenuItemCallback
 from bot.filters.ad import IsCurseWordsFilter, IsLimitLengthAdFilter
 from bot.filters.terms_of_use import IsAcceptTermsOfUseFilter
 from bot.filters.user import RoleFilter
 from bot.keyboards.inline.ad import get_ads_list_keyboard, AdListControlCallback, AdListActionCallback, \
     get_ad_actions_keyboard, AdActionCallback, get_cancel_ad_action_keyboard
+from bot.keyboards.inline.menu import MenuItemCallback
 from bot.loader import bot
 from bot.middlewares.subscribe import SubscribeChannelMiddleware
 from bot.schemas.ad import EditAdTextModel, UtilsAdModel
@@ -34,20 +35,20 @@ router.message.middleware(SubscribeChannelMiddleware(channel_id=config.telegram.
 router.callback_query.middleware(SubscribeChannelMiddleware(channel_id=config.telegram.channel_id))
 
 
-@router.message(
-    F.chat.type == ChatType.PRIVATE,
-    F.text == MainMenu.MY_ADS,
+@router.callback_query(
+    F.message.chat.type == ChatType.PRIVATE,
     any_state,
+    MenuItemCallback.filter(F.item == MainMenuItemCallback.MY_ADS),
     RoleFilter(ALL),
     IsAcceptTermsOfUseFilter(),
 )
 @flags.rate_limit(limit=3)
 async def my_ads(
-        message: Message,
+        call: CallbackQuery,
         state: FSMContext,
 ) -> Any:
     await state.clear()
-    await ads_list(message)
+    await ads_list(call)
 
 
 @router.callback_query(

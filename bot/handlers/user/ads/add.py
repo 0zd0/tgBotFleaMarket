@@ -5,30 +5,31 @@ from typing import Any, List
 import emoji
 from aiogram import Router, F, flags
 from aiogram.enums import ChatType, ContentType
+from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import any_state
-from aiogram.types import Message, InputMediaPhoto, CallbackQuery
+from aiogram.types import Message, InputMediaPhoto, CallbackQuery, ReplyKeyboardRemove
 from aiogram.utils.formatting import as_list, Text, Bold, Italic
 
 from bot.custom_types.album import Album
 from bot.data.main_config import config
 from bot.db.ad.model import AdModel
-from bot.db.user.model import UserModel
 from bot.enums.action import Action
 from bot.enums.db.role import ALL
-from bot.enums.menu import Cancel, MainMenu
+from bot.enums.menu import Cancel, MainMenuItemCallback
 from bot.filters.ad import IsCurseWordsFilter, IsLimitLengthAdFilter, IsLimitAdsPerDayFilter
 from bot.filters.terms_of_use import IsAcceptTermsOfUseFilter
 from bot.filters.user import RoleFilter
-from bot.keyboards.default.menu import menu_keyboards
 from bot.keyboards.default.misc import cancel
 from bot.keyboards.inline.ad import new_ad_skip_images_keyboard, new_ad_public_images_keyboard, NewAdCallback
+from bot.keyboards.inline.menu import MenuItemCallback
 from bot.loader import bot
 from bot.middlewares import AlbumMiddleware
 from bot.middlewares.subscribe import SubscribeChannelMiddleware
 from bot.schemas.ad import NewAdModel, UtilsAdModel
 from bot.states.ad import NewAdState
 from bot.utils.misc.ad import get_text_error_action_ad, get_text_message_ad, get_advertising_for_message
+from bot.utils.misc.menu import send_main_menu
 
 EMOJI_TO_BUTTON = emoji.emojize(":backhand_index_pointing_down:")
 
@@ -41,39 +42,42 @@ router.callback_query.middleware(SubscribeChannelMiddleware(channel_id=config.te
 @router.message(
     F.chat.type == ChatType.PRIVATE,
     F.text == Cancel.CANCEL,
+    StateFilter(NewAdState),
     RoleFilter(ALL),
     IsAcceptTermsOfUseFilter(),
 )
 @flags.rate_limit(limit=3)
-async def new_ad_cancel(message: Message, state: FSMContext, user: UserModel):
+async def new_ad_cancel(message: Message, state: FSMContext):
     await state.clear()
     content = as_list(
         Text(f'{emoji.emojize(":cross_mark:")} Отмена создания объявления')
     )
-    await message.answer(text=content.as_markdown(), reply_markup=menu_keyboards.get(user.role))
+    await message.answer(text=content.as_markdown(), reply_markup=ReplyKeyboardRemove())
+    await send_main_menu(message)
 
 
-@router.message(
-    F.chat.type == ChatType.PRIVATE,
-    F.text == MainMenu.NEW_AD,
+@router.callback_query(
+    F.message.chat.type == ChatType.PRIVATE,
     any_state,
+    MenuItemCallback.filter(F.item == MainMenuItemCallback.NEW_AD),
     RoleFilter(ALL),
     IsAcceptTermsOfUseFilter(),
     ~IsLimitAdsPerDayFilter(config.telegram.max_ads_per_day),
 )
 @flags.rate_limit(limit=3)
 async def new_ad_start(
-        message: Message,
+        call: CallbackQuery,
         state: FSMContext,
 ) -> Any:
     await state.clear()
+    await call.answer()
     await state.set_state(NewAdState.TEXT)
     content = as_list(
         Text(Text(f'Пожалуйста, отправьте боту Ваш текст объявления.'), ),
         Text(),
         Text('Не забудьте указать номер телефона, это поможет потенциальным клиентам быстрее с Вами связаться!'),
     )
-    await message.answer(
+    await call.message.answer(
         text=content.as_markdown(),
         reply_markup=cancel
     )
@@ -224,7 +228,6 @@ async def new_ad_photo(
 async def new_ad_callback_end(
         call: CallbackQuery,
         state: FSMContext,
-        user: UserModel,
 ) -> Any:
     data = NewAdModel(**(await state.get_data()))
     ads_limit_must = config.telegram.advertising_every_ad - 1
@@ -267,7 +270,7 @@ async def new_ad_callback_end(
         logging.error('Ошибка при отправке объявления в канал')
         traceback.print_exc()
         content = get_text_error_action_ad()
-        await call.message.answer(text=content.as_markdown(), reply_markup=menu_keyboards.get(user.role))
+        await call.message.answer(text=content.as_markdown(), reply_markup=ReplyKeyboardRemove())
     else:
         data.channel_message_id = send_message.message_id
         await AdModel.create_ad(
@@ -277,10 +280,11 @@ async def new_ad_callback_end(
         content = as_list(
             Text(f'Ваше объявление успешно размещено!')
         )
-        await call.message.answer(text=content.as_markdown(), reply_markup=menu_keyboards.get(user.role))
+        await call.message.answer(text=content.as_markdown(), reply_markup=ReplyKeyboardRemove())
     finally:
         await call.answer()
         await state.clear()
+        await send_main_menu(call.message)
 
 
 async def message_text_and_photo(

@@ -4,14 +4,13 @@ import traceback
 
 from aiogram.utils.formatting import as_list, Text
 
-from bot.constants import REMINDER_IF_NO_ACTIVITY_SECONDS
 from bot.data.main_config import config
 from bot.db.user.model import UserModel
 from bot.loader import bot
 
 
 async def reminder_old_activity():
-    users = await UserModel.get_all_old_activity(REMINDER_IF_NO_ACTIVITY_SECONDS)
+    users = await UserModel.get_all_old_activity(config.telegram.reminder_if_no_activity_seconds)
     for user in users:
         try:
             content = as_list(

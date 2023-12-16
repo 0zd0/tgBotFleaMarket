@@ -17,6 +17,7 @@ class TelegramConfig(BaseModel):
     max_ads_per_day: int
     advertising: str
     advertising_every_ad: int
+    reminder_if_no_activity_seconds: int
 
 
 class CurseWordsConfig(BaseModel):

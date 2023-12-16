@@ -6,8 +6,7 @@ from bot.enums.db.role import Role
 main_menu_default = ReplyKeyboardMarkup(
     keyboard=[
         [
-            KeyboardButton(text=MainMenu.NEW_AD.value),
-            KeyboardButton(text=MainMenu.MY_ADS.value),
+            KeyboardButton(text=MainMenu.MENU.value),
         ],
     ],
     resize_keyboard=True,

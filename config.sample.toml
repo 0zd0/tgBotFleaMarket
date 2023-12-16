@@ -9,6 +9,7 @@ max_length_ads = 3000
 max_ads_per_day = 2
 advertising = "Ремонт телефонов, планшетов, компьютеров г. Анива, ТЦ\nСагори 1й этаж\n89140983232"
 advertising_every_ad = 4
+reminder_if_no_activity_seconds = 180
 
 
 [redis]

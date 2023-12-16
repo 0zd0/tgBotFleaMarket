@@ -2,7 +2,7 @@ from typing import Any
 
 from aiogram import Router, F, flags
 from aiogram.enums import ChatType
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import any_state
 from aiogram.types import Message, CallbackQuery
@@ -16,9 +16,11 @@ from bot.filters.terms_of_use import IsAcceptTermsOfUseFilter
 from bot.filters.user import RoleFilter
 from bot.keyboards.default.menu import menu_keyboards
 from bot.enums.db.role import ALL
+from bot.keyboards.inline.menu import inline_menu
 from bot.keyboards.inline.terms_of_use import accept_terms_keyboard, TermsOfUseCallback
 from bot.loader import bot
 from bot.middlewares.subscribe import SubscribeChannelMiddleware
+from bot.utils.misc.menu import send_main_menu
 
 router = Router()
 router.message.middleware(SubscribeChannelMiddleware(channel_id=config.telegram.channel_id))
@@ -120,20 +122,6 @@ async def accept_terms_of_use(
 async def start(
         message: Message,
         state: FSMContext,
-        user: UserModel
 ) -> Any:
     await state.clear()
-    chat = await bot.get_chat(config.telegram.channel_id)
-    ads = await AdModel.get_ads_day_by_user(message.from_user.id)
-    content = as_list(
-        Text(f'Здравствуйте {message.from_user.full_name}!'),
-        Text(f''),
-        Text(f'Кол-во объявлений на сегодня {max(config.telegram.max_ads_per_day - len(ads), 0)} шт.'),
-        Text(f''),
-        Text(f'Связь с администратором @{config.telegram.support_username}'),
-        Text(f'Перейти в канал @{chat.username}'),
-    )
-    await message.answer(
-        text=content.as_markdown(),
-        reply_markup=menu_keyboards.get(user.role),
-    )
+    await send_main_menu(message, welcome=True)
