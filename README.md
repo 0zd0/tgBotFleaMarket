@@ -1,6 +1,6 @@
 # Tg Bot Барахолка
 
-Ссылка на скачивание - https://codeload.github.com/plaksherie/tgBotFleaMarket/zip/refs/heads/master
+Ссылка на скачивание - https://codeload.github.com/0zd0/tgBotFleaMarket/zip/refs/heads/master
 
 ### Запуск локально(конечно же с работающим postgres & redis)
 ```sh
@@ -16,7 +16,7 @@ python -m bot --mode=dev
 ### Config
 Конфиг в зависимости от режима создается из примера `config.sample.toml` в `config.{mode}.toml`
 
-![Screenshot_148](https://github.com/plaksherie/tgBotFleaMarket/assets/67220210/4ebc1541-b027-40dd-9386-81b1c0fff7af)
+![Screenshot_148](https://github.com/0zd0/tgBotFleaMarket/assets/67220210/4ebc1541-b027-40dd-9386-81b1c0fff7af)
 
 #### Параметры
 Секция telegram:
